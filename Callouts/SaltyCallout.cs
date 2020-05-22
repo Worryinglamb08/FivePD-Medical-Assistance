@@ -7,10 +7,19 @@ namespace SaltyCallouts_FivePD.Utils
 	public abstract class SaltyCallout : Callout
 	{
 		public int ElapsedTime => Game.GameTime - startTime;
-		
+
 		protected int progress;
 		private int startTime;
 
+		public override void OnStart(Ped closest)
+		{
+			base.OnStart(closest);
+			
+			startTime = Game.GameTime;
+			Tick += Process;
+		}
+
+		/*
 		public override void OnStart(Ped closest)
 		{
 			base.OnStart(closest);
@@ -18,6 +27,7 @@ namespace SaltyCallouts_FivePD.Utils
 			startTime = Game.GameTime;
 			Tick += Process;
 		}
+		*/
 
 		private async Task Process()
 		{
