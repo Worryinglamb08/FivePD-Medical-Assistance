@@ -1,6 +1,6 @@
 ﻿# SaltyCallouts for FivePD
 
-SaltyCllouts for [FivePD](https://gtapolicemods.com/index.php?/fivepd/) is a collection of custom callouts for the FiveM modification "FivePD".
+SaltyCallouts for [FivePD](https://gtapolicemods.com/index.php?/fivepd/) is a collection of custom callouts for the FiveM modification "FivePD".
 
 ## Callouts
 
