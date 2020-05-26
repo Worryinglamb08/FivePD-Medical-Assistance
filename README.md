@@ -1,6 +1,6 @@
-﻿# SaltyCallouts for FivePD
+﻿# Medical Assistance Callouts
 
-SaltyCallouts for [FivePD](https://gtapolicemods.com/index.php?/fivepd/) is a collection of custom callouts for the FiveM modification "FivePD".
+Medical Assistance callouts (formerly SaltyCallouts for [FivePD](https://gtapolicemods.com/index.php?/fivepd/)) is a collection of medical callouts for the FiveM modification "FivePD".
 
 ## Callouts
 
