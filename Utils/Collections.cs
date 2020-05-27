@@ -184,7 +184,7 @@ namespace SaltyCallouts_FivePD.Utils
 					new Location("Central Los Santos Medical Center", 293, -1_437, 30, 228);
 
 				internal static readonly Location MOUNT_ZONAH_MEDICAL_CENTER =
-					new Location("Mount Zonah Medical Center", -529, -327, 35, 28);
+					new Location("Mount Zonah Medical Center", -466, -337, 34, 350);
 
 				internal static readonly Location PILLBOX_HILL_MEDICAL_CENTER =
 					new Location("Pillbox Hill Medical Center", 360, -593, 29, 162);

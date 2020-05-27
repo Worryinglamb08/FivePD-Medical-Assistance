@@ -7,8 +7,8 @@
         <ProjectGuid>{1983605B-D86A-4EB2-9654-CCA597EEC3F2}</ProjectGuid>
         <OutputType>Library</OutputType>
         <AppDesignerFolder>Properties</AppDesignerFolder>
-        <RootNamespace>SaltyCallouts_FivePD</RootNamespace>
-        <AssemblyName>SaltyCallouts_for_FivePD.net</AssemblyName>
+        <RootNamespace>MedicalAssistanceCallouts</RootNamespace>
+        <AssemblyName>MedicalAssistanceCallouts.net</AssemblyName>
         <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
         <FileAlignment>512</FileAlignment>
         <LangVersion>8</LangVersion>

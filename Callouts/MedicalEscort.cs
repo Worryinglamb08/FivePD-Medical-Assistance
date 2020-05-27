@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Threading.Tasks;
 using CalloutAPI;
 using CitizenFX.Core;
 using CitizenFX.Core.Native;
 using SaltyCallouts_FivePD.Routing;
 using SaltyCallouts_FivePD.Utils;
+using static CitizenFX.Core.BaseScript;
 using static CitizenFX.Core.Debug;
 using static CitizenFX.Core.UI.Screen;
 using static CitizenFX.Core.World;
@@ -14,10 +14,12 @@ using static SaltyCallouts_FivePD.Utils.Collections;
 
 namespace SaltyCallouts_FivePD.Callouts
 {
-	[CalloutProperties("Medical Escort", "Salzian", "0.2", Probability.High)]
+	[CalloutProperties("Medical Escort", "Salzian", "latest", Probability.Low)]
 	[SuppressMessage("ReSharper", "UnusedType.Global")]
 	public class MedicalEscort : SaltyCallout
 	{
+		private protected override int ProcessTickDelay { get; set; } = 500;
+
 		private static readonly RouteCollection ROUTE_COLLECTION = new RouteCollection(
 			/* TODO LSIA is broken cause the ambulance can't find it's way out the gate (#5)
 			new Route(Spawns.Airports.Lsia.EMS_TRANSFER, Spawns.Hospitals.CENTRAL_LOS_SANTOS_MEDICAL_CENTER, true),
@@ -35,21 +37,23 @@ namespace SaltyCallouts_FivePD.Callouts
 			//new Route(Spawns.Hospitals.PALETO_BAY_MEDICAL_CENTER, Spawns.Hospitals.PILLBOX_HILL_MEDICAL_CENTER)
 		);
 
+
 		private Ped? driver;
 		private Ped? passenger;
 		private Ped? patient;
 		private Vehicle? ambulance;
 		private Blip? ambulanceBlip;
 		private readonly Route route;
+
 		private float averageVelocity;
-// private readonly bool fail;
+		private int parkStartTime;
 
 		#region Callout
 
 		public MedicalEscort() : base("Medical Escort")
 		{
 			// TODO Revert max once CheckRequirements is fixed https://github.com/KDani-99/FivePD-API/issues/43
-			route = ROUTE_COLLECTION.GetNearestRandomRoute(200f, 3000f);
+			route = ROUTE_COLLECTION.GetNearestRandomRoute(100f, 3000f);
 
 			/* TODO Revert once CheckRequirements is fixed https://github.com/KDani-99/FivePD-API/issues/43
 			if (route == null)
@@ -64,7 +68,7 @@ namespace SaltyCallouts_FivePD.Callouts
 			ShortName = "Medical Escort";
 			CalloutDescription = "A critical patient needs to be escorted.";
 			ResponseCode = 2;
-			StartDistance = 30;
+			StartDistance = 50f;
 		}
 
 		/* TODO CheckRequirements is broken https://github.com/KDani-99/FivePD-API/issues/43
@@ -75,9 +79,11 @@ namespace SaltyCallouts_FivePD.Callouts
 		}
 		*/
 
+
 		public override async Task Init()
 		{
 			OnAccept(StartDistance);
+			Marker.Scale = StartDistance;
 
 			if (route != null)
 			{
@@ -132,97 +138,94 @@ namespace SaltyCallouts_FivePD.Callouts
 
 			passenger?.Task.EnterVehicle(ambulance, VehicleSeat.RightRear);
 
-			var waitForPartnerAndDepart = new TaskSequence();
-			waitForPartnerAndDepart.AddTask.Wait(5000);
-			waitForPartnerAndDepart.AddTask.DriveTo(
-				ambulance,
-				route!.End.Position,
-				0f,
-				(float) Speed.Fast,
-				(int) RageVehicleDrivingFlags.Emergency);
-			waitForPartnerAndDepart.Close();
-
-			driver!.Task.PerformSequence(waitForPartnerAndDepart);
-
 			API.SetBigmapActive(true, false);
 		}
 
-		private protected override bool Progress()
+		private protected override async Task<bool> Progress()
 		{
-			StuckTest();
-
-			switch (progress)
+			switch (State)
 			{
-				case 0:
-					if (GetDistance(ambulance!.Position, route!.End.Position) > 100)
-						return false;
+				case CalloutState.Accepted:
+					State = CalloutState.Enroute;
 
-					ShowNotification("Arrived at destination. Wait for ambulance to park.");
-
-					ClearPosition(route!.End.Position, 10f);
-					ambulance.IsSirenSilent = true;
-					driver?.Task.DriveTo(ambulance, route.End.Position, 0f, (float) Speed.Slow);
-
-					progress++;
+					ShowNotification("Drive to the hospital and escort the ambulance.");
 					return false;
 
-				case 1:
-					if (GetDistance(ambulance!.Position, route!.End.Position) > 5f) return false;
+				case CalloutState.Enroute:
+					if (!(route.Start.DistanceTo(Leader.Position) < StartDistance)) return false;
 
-					ShowNotification("The patient has been delivered. Thank you for your assistance.");
+					State = CalloutState.Arrived;
 
-					patient?.Delete();
+					ShowNotification("Wait for the ambulance to ready up...");
+					return false;
+
+				case CalloutState.Arrived:
+					ambulance!.Doors[VehicleDoorIndex.FrontLeftDoor].Close();
+					passenger!.Task.EnterVehicle(ambulance, VehicleSeat.RightRear);
+
+					await Delay(Utilities.RANDOM.Next(3000, 7000));
+
+					State = CalloutState.TransportEnroute;
+
+					ShowNotification("The ambulance will now follow the prrimary officer.");
+					return false;
+
+				case CalloutState.TransportEnroute:
+					StuckTest();
+
+					Vector3 followOffset = -Leader.CurrentVehicle.ForwardVector;
+					float followSpeed = CalculateFollowSpeed(ambulance!, Leader, followOffset, (float) Speed.SuperFast);
+
+					driver!.Task.DriveTo(
+						ambulance,
+						Leader.Position + followOffset,
+						10f,
+						followSpeed,
+						(int) DrivingStyle.Rushed);
+
+					if (!(GetDistance(ambulance!.Position, route.End.Position) < 50f)) return false;
+
+					ambulance.IsSirenSilent = true;
+					State = CalloutState.TransportArrived;
+
+					ShowNotification("Wait for the ambulance to park.");
+					parkStartTime = Game.GameTime;
+					return false;
+
+				case CalloutState.TransportArrived:
+					ArrivedStuckTest();
+
+					driver!.Task.DriveTo(
+						ambulance,
+						route!.End.Position,
+						5f,
+						(float) Speed.Normal,
+						(int) DrivingStyle.ShortestPath);
+
+					if (!(GetDistance(ambulance!.Position, route!.End.Position) < 10f)) return false;
+
+					driver.Task.LeaveVehicle();
+					passenger!.Task.LeaveVehicle();
+					await Delay(2000);
+
+					driver.Task.GoTo(ambulance.Position - ambulance.ForwardVector * 7f);
+					passenger.Task.GuardCurrentPosition();
+					await Delay(1000);
+
+					driver.Task.GuardCurrentPosition();
+
+					ShowNotification("Thank you for your assistance!");
+					EndCallout();
 					return true;
 
 				default:
-					return true;
+					throw new ArgumentOutOfRangeException();
 			}
 		}
 
-		private void StuckTest()
-		{
-			if (ambulance == null) return;
+		public override void OnCancelBefore() => ambulanceBlip?.Delete();
 
-			averageVelocity = averageVelocity * 0.8f + ambulance.Velocity.Length() * 0.2f;
-			
-			// If ambulance freshly spawned, temporarily disable collisions with players
-			AssignedPlayers.ForEach(ped =>
-			{
-				Vehicle? pedVehicle = ped.CurrentVehicle;
-				if (pedVehicle == null) return;
-
-				bool toggle = !(averageVelocity > 70 &&
-				                GetDistance(ambulance.Position, pedVehicle.Position) <
-				                ambulance.Velocity.Length() + pedVehicle.Velocity.Length());
-				ambulance.SetNoCollision(
-					pedVehicle,
-					toggle);
-			});
-
-			if (!(averageVelocity <= 5)) return;
-
-			ambulance.Position =
-				GetNextPositionOnStreet(Game.PlayerPed.Position - Game.PlayerPed.ForwardVector * 20f, true);
-
-			averageVelocity = 100f;
-		}
-
-		private async void ClearPosition(Vector3 position, float radius)
-		{
-			foreach (Vehicle filteredVehicle in GetAllVehicles()
-				.Where(vehicle => vehicle.IsInRangeOf(position, radius))
-			)
-			{
-				if (filteredVehicle.Driver == null) await CreatePed(GetRandomPed(), filteredVehicle.Position);
-				filteredVehicle.Driver?.Task.CruiseWithVehicle(filteredVehicle, (float) Speed.Normal);
-			}
-		}
-
-		public override void OnCancelBefore()
-		{
-			ambulanceBlip?.Delete();
-			API.SetBigmapActive(false, false);
-		}
+		public override void OnCancelAfter() => API.SetBigmapActive(false, false);
 
 		private protected override bool LifelinessChecks()
 		{
@@ -237,6 +240,53 @@ namespace SaltyCallouts_FivePD.Callouts
 				WriteLine(e.ToString());
 				return false;
 			}
+		}
+
+		private void StuckTest()
+		{
+			if (ambulance == null) return;
+
+			averageVelocity = averageVelocity * 0.8f + ambulance.Velocity.Length() * 0.2f;
+
+			// If ambulance freshly spawned, temporarily disable collisions with players
+			AssignedPlayers.ForEach(ped =>
+			{
+				Vehicle? pedVehicle = ped.CurrentVehicle;
+				if (pedVehicle == null) return;
+
+				bool toggle = !(averageVelocity > 70 &&
+				                GetDistance(ambulance.Position, pedVehicle.Position) <
+				                ambulance.Velocity.Length() + pedVehicle.Velocity.Length());
+				ambulance.SetNoCollision(
+					pedVehicle,
+					toggle);
+			});
+
+			if (averageVelocity > MathUtil.Clamp(Leader.Velocity.Length() - 1f, 0f, 3f) &&
+			    GetDistance(Leader.Position, ambulance.Position) < 200f) return;
+
+			ambulance.Position =
+				GetNextPositionOnStreet(Game.PlayerPed.Position - Game.PlayerPed.ForwardVector * 20f, true);
+			ambulance.Heading = Leader.CurrentVehicle.Heading;
+
+			averageVelocity = 100f;
+		}
+
+		private void ArrivedStuckTest()
+		{
+			if (Game.GameTime <= parkStartTime + 10000) return;
+			
+			ShowNotification("Seems the ambulance driver is drunk... You're off to go.");
+			EndCallout();
+		}
+
+		private static float CalculateFollowSpeed(Entity follower, Entity destination, Vector3 followOffset,
+			float speedCap)
+		{
+			float distance = GetDistance(follower.Position, destination.Position + followOffset);
+			float speedDifference = (destination.Velocity - follower.Velocity).Length();
+
+			return MathUtil.Clamp(distance - speedDifference, 0f, speedCap);
 		}
 
 		#endregion

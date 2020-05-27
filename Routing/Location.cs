@@ -13,6 +13,9 @@ namespace SaltyCallouts_FivePD
 		internal Vector3 Position => fivePoint.position;
 		internal float Heading => fivePoint.heading;
 		internal float DistanceToLocalPlayer => GetDistance(Position, Game.PlayerPed.Position);
+		private float RoadDistanceToLocalPlayer => CalculateTravelDistance(Game.PlayerPed.Position, Position);
+
+		public float DistanceTo(Vector3 target) => GetDistance(Position, target);
 
 
 		// ReSharper disable once FieldCanBeMadeReadOnly.Local throws VerificationException otherwise

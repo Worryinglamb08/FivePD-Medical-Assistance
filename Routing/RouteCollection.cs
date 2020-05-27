@@ -10,7 +10,6 @@ namespace SaltyCallouts_FivePD.Routing
 	{
 		private List<Route> Routes { get; }
 
-		public RouteCollection(List<Route> locations) => Routes = locations;
 		public RouteCollection(params Route[] routes) => Routes = routes.ToList();
 
 		internal Route GetNearestRandomRoute(float min, float max)
