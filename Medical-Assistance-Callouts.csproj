@@ -59,7 +59,7 @@
         <Compile Include="Utils\Utilities.cs" />
     </ItemGroup>
     <ItemGroup>
-        <Content Include="LICENSE.md" />
+        <Content Include="LICENSE" />
         <Content Include="README.md" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
